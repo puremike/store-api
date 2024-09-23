@@ -1,0 +1,136 @@
+## Regarding the limit, page, and skip logic:
+
+
+limit:
+
+The limit specifies how many products should be returned in a single response.
+In the code, it's retrieved from the query parameters: const limit = Number(req.query.limit);.
+If you set limit=10 in the query, it will only return 10 products, which helps when dealing with a large dataset. This prevents overloading the client with too much data at once.
+
+skip:
+
+skip is used to skip over a certain number of products before starting to return results.
+In the code, it's calculated like this: const skip = (page - 1) * limit;.
+If you are on page 1, skip will be 0, meaning it will return products from the beginning of the dataset. If you are on page 2, it will skip the first limit number of products (e.g., the first 10 if limit=10), and return the next set of products.
+
+page:
+
+page is the current page number requested in the query, which dictates which "slice" of the dataset should be returned.
+If page=1, it will return the first set of products (after skipping 0).
+If page=2, it will skip the first limit number of products and return the next limit number of products, creating a paginated response.
+
+Example Scenario:
+Suppose you have 30 products in your database:
+
+If you query ?page=1&limit=10, it will return the first 10 products.
+If you query ?page=2&limit=10, it will skip the first 10 products and return the next 10 (products 11–20).
+If you query ?page=3&limit=10, it will skip the first 20 products and return the next 10 (products 21–30).
+The combination of limit, skip, and page enables you to control how much data is retrieved and which part of the dataset is being viewed based on the page number
+
+
+## Regarding the numericFilters logic:
+
+
+This code processes numeric filters from a query string (like price>50 or rating<=4) and converts them into a format that MongoDB understands, incorporating MongoDB's comparison operators like $gt, $lte, etc.
+
+Here’s a step-by-step explanation of what’s happening:
+
+1. Check if numericFilters exist:
+
+    if (numericFilters) {}
+    
+This if statement checks if there are any numeric filters provided (for example, price>100 or rating<=4). If numericFilters is present, the rest of the code block runs.
+
+2. Define operatorMap:
+
+    const operatorMap = {
+        '<': '$lt',
+        '<=': '$lte',
+        '>': '$gt',
+        '>=': '$gte',
+        '=': '$eq',
+    };
+
+Here, a mapping between common comparison operators (<, <=, >, >=, =) and their MongoDB equivalents ($lt, $lte, $gt, $gte, $eq) is created. This allows the code to translate human-readable comparison operators into MongoDB operators.
+
+3. Define the regEx:
+
+    const regex = /\b(<|>|>=|=|<|<=)\b/g;
+
+A regular expression (regEx) is created to match any of the comparison operators (<, <=, >, >=, =). It looks for boundaries (\b) around these operators to ensure they are treated as standalone tokens in the string.
+
+4. Replace comparison operators:
+
+    let filters = numericFilters.replace(
+        regex,
+        (match) => `-${operatorMap[match]}-`
+    );
+
+In this step, the code replaces each comparison operator in the numericFilters string with a dash (-), the MongoDB operator (from the operatorMap), and another dash. For example:
+
+    price>50 becomes price-$gt-50
+    rating<=4 becomes rating-$lte-4
+
+This conversion simplifies parsing in the next step.
+
+5. Split and process the filters:
+
+    filters = filters.split(',').forEach((item) => {
+    const [field, operator, value] = item.split('-');
+
+After repla    queryObject = {
+        price: { $gt: 50 },
+        rating: { $lte: 4 }
+    };cing the operators, the filters string is split by commas (filters.split(',')), separating each filter into individual items like price-$gt-50 and rating-$lt-4.
+
+Then, each item is split by dashes (item.split('-')), giving three components:
+
+    field: the attribute being filtered (e.g., price or rating)
+    operator: the MongoDB comparison operator (e.g., $gt, $lte)
+    value: the numeric value for the comparison (e.g., 50, 4)
+
+6. Filter only allowed fields:
+
+    if (options.includes(field)) {
+
+Here, the code ensures that only specific fields (in this case, price and rating) are allowed for filtering. If the field is not one of the allowed options, it will be ignored.
+
+7. Build the query object:
+
+    queryObject[field] = {
+        [operator]: Number(value),
+    };
+
+If the field is allowed, the query object is constructed. For example, price-$gt-50 will result in:
+
+    queryObject = {
+        price: {
+            $gt: 50
+        }
+    };
+
+This structure is what MongoDB expects for queries.
+
+Example Walkthrough:
+Suppose numericFilters is "price>50,rating<=4", here’s how it will be processed:
+
+The regular expression will find the operators (> and <=) and replace them:
+
+price>50 becomes price-$gt-50
+rating<=4 becomes rating-$lte-4
+The filters string becomes:
+
+"price-$gt-50,rating-$lte-4"
+This string is split by commas, resulting in:
+
+
+["price-$gt-50", "rating-$lte-4"]
+Each item is then split by dashes, and the query object is constructed:
+
+
+    queryObject = {
+        price: { $gt: 50 },
+        rating: { $lte: 4 }
+    };
+
+This queryObject can now be used directly in a MongoDB query to filter products based on price and rating.
