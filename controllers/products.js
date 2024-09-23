@@ -9,7 +9,7 @@ const getAllProductsStatic = async (req, res) => {
 };
 
 const getAllProducts = async (req, res) => {
-	const {name, featured, company, sort, select, numericfilters} = req.query;
+	const {name, featured, company, sort, field, numericfilters} = req.query;
 	const queryObject = {};
 
 	if (name) {
@@ -57,9 +57,9 @@ const getAllProducts = async (req, res) => {
 		const sortList = sort.split(',').join(' ');
 		results = results.sort(sortList);
 	}
-	if (select) {
-		const selectField = select.split(',').join(' ');
-		results = results.select(selectField);
+	if (field) {
+		const fieldList = field.split(',').join(' ');
+		results = results.select(fieldList);
 	}
 
 	// Pagination
