@@ -4,6 +4,7 @@ const router = express.Router();
 const {
 	getAllProducts,
 	getAllProductsStatic,
+	redoP,
 } = require('../controllers/products');
 
 router.route('/').get(getAllProducts);
